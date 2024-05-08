@@ -24,6 +24,20 @@ This Flask app utilizes a trained model for sign language recognition using Medi
 
 4. Access the app in your browser at `http://localhost:3000`.
 
+## Usage
+1. Visit the app in your browser.
+2. Upload a video file.
+3. Wait for the app to process the video and display the predicted actions.
+4. Interpret the predictions based on the recognized actions.
+   
+**Note:** The model currently recognizes the following 6 classes of actions:
+- Drink
+- Eat
+- Goodbye
+- Hello
+- Help
+- How are you
+
 ## Dependencies
 
 - Flask
@@ -33,12 +47,7 @@ This Flask app utilizes a trained model for sign language recognition using Medi
 - MediaPipe
 - OpenCV (opencv-python-headless)
 
-## Usage
 
-1. Visit the app in your browser.
-2. Upload a video file.
-3. Wait for the app to process the video and display the predicted actions.
-4. Interpret the predictions based on the recognized actions.
 
 ## File Structure
 
