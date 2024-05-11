@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, jsonify
 import cv2
 import numpy as np
@@ -7,8 +6,12 @@ import os
 from matplotlib import pyplot as plt
 import time
 import mediapipe as mp
+from flask_cors import CORS
+import subprocess
+import shutil
 
 app = Flask(__name__)
+CORS(app)
 
 # Load the model
 model = load_model('./model_lstm_6_classes_0.98.h5')
@@ -89,8 +92,11 @@ def get_prediction(video_path):
             # sequence = []
             # if len(sentence) > 5:
             #     sentence = sentence[-5:]
-
-        
+    # if os.path.exists(video_path):
+    #     os.remove(video_path)
+    #     print(f"File {video_path} has been deleted.")
+    # else:
+    #     print("The file does not exist.")
 
     # Calculate elapsed time
     end_time = time.time()
@@ -103,8 +109,6 @@ def get_prediction(video_path):
    
     return jsonify({'prediction': sentence})
 
-app = Flask(__name__) 
-
 @app.route('/', methods=['GET'])
 def test():
     return render_template('index.html')
@@ -115,12 +119,26 @@ def predict():
     videofile = request.files['videofile']
     # print("")
     video_path = "./videos/" + videofile.filename
-    videofile.save(video_path)
-
-
+    try:
+        videofile.save(video_path)
+        app.logger.info(f"File saved successfully at {video_path}")
+        temp_output_path = video_path.rsplit('.', 1)[0] + '_temp.webm'
+        command = f"ffmpeg -i {video_path} -vf 'scale=iw*0.5:ih*0.5' -y {temp_output_path}"
+        # command = f"ffmpeg -i {video_path} -vf 'fps=20' -y {temp_output_path}"
+        subprocess.run(command, shell=True, check=True)
+        shutil.move(temp_output_path, video_path)
+        
+    except Exception as e:
+        app.logger.error(f"Failed to save file: {e}")
+        return jsonify({'error': 'Failed to save file'}), 500
 
     return get_prediction(video_path)
 
+@app.errorhandler(500)
+def handle_500_error(exception):
+    app.logger.error(f"Server Error: {exception}")
+    return jsonify({'error': 'Internal Server Error'}), 500
+
 if __name__ == '__main__':
-    app.run(port=3000, debug=True, host='0.0.0.0')
+    app.run(port=3006, debug=True, host='0.0.0.0')
 
