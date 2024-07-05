@@ -14,8 +14,8 @@ app = Flask(__name__)
 CORS(app)
 
 # Load the model
-model = load_model('./model_lstm_6_classes_0.98.h5')
-actions = np.array(['drink', 'eat', 'goodbye', 'hello', 'help', 'how are you'])
+model = load_model('./LSTM29.h5')
+actions = np.array(['drink','eat','friend','goodbye','hello','help','how are you','no','yes','please','sorry','thanks','cry','i','they','you','what','name','teacher','family','happy','love','sad','laugh','neighbor','ok','read','write','school'])
 
 mp_holistic = mp.solutions.holistic # Holistic model
 mp_drawing = mp.solutions.drawing_utils # Drawing utilitiesactions = np.array(['hello', 'thanks', 'iloveyou'])
@@ -122,11 +122,11 @@ def predict():
     try:
         videofile.save(video_path)
         app.logger.info(f"File saved successfully at {video_path}")
-        temp_output_path = video_path.rsplit('.', 1)[0] + '_temp.webm'
-        command = f"ffmpeg -i {video_path} -vf 'scale=iw*0.5:ih*0.5' -y {temp_output_path}"
+        # temp_output_path = video_path.rsplit('.', 1)[0] + '_temp.webm'
+        # command = f"ffmpeg -i {video_path} -vf 'scale=iw*0.5:ih*0.5' -y {temp_output_path}"
         # command = f"ffmpeg -i {video_path} -vf 'fps=20' -y {temp_output_path}"
-        subprocess.run(command, shell=True, check=True)
-        shutil.move(temp_output_path, video_path)
+        # subprocess.run(command, shell=True, check=True)
+        # shutil.move(temp_output_path, video_path)
         
     except Exception as e:
         app.logger.error(f"Failed to save file: {e}")
