@@ -9,6 +9,10 @@ import mediapipe as mp
 from flask_cors import CORS
 import subprocess
 import shutil
+import warnings
+os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
+warnings.filterwarnings('ignore')
+
 
 app = Flask(__name__)
 CORS(app)
@@ -37,77 +41,48 @@ def extract_keypoints(results):
     rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(21*3)
     return np.concatenate([pose, face, lh, rh])
 
-def get_prediction(video_path):
-
-    # Load the model and define other necessary variables
-    sequence = []
-    sentence = []
-    predictions = []
-    threshold = 0.5
-
-    # Load the video file
+def get_prediction(video_path: str) -> jsonify:
     cap = cv2.VideoCapture(video_path)
     start_time = time.time()
     print('start')
     print("total frames count: ",int(cap.get(cv2.CAP_PROP_FRAME_COUNT)))
-    while cap.isOpened():
-        # Read a frame from the video
-        ret, frame = cap.read()
+    if not cap.isOpened():
+        return jsonify({'error': 'Cannot open the video file'}), 400
 
-        # If there are no more frames, break the loop
-        if not ret:
-            print("No more frames. Exiting loop.")
-            break
+    mp_holistic = mp.solutions.holistic  # MediaPipe Holistic model
+    sequence = []
+    predictions = []
 
-        # print("Frame read successfully.")
+    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-        # Make detections
-        with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
             image, results = mediapipe_detection(frame, holistic)
-            # print("Detections made.")
+            keypoints = extract_keypoints(results)
+            if keypoints is not None:
+                # Only take the keypoints for the hands (assuming this from your original code)
+                lh_rh = keypoints[1536:]
+                lh_rh = lh_rh.reshape(-1, 3)[:, :2].flatten()
+                sequence.append(lh_rh)
+        print("sequence length: ",len(sequence))
+        if len(sequence) > 30:
+            sequence = sequence[10:40]
 
-        # Prediction logic
-        keypoints = extract_keypoints(results)
-        lh_rh = keypoints[1536:]
-        #Remove z Axis From Landmarks
-        for z in range(2,lh_rh.shape[0],3):
-            lh_rh[z] = None
-        #Remove NaN Data
-        lh_rh = lh_rh[np.logical_not(np.isnan(lh_rh))]
-        sequence.append(lh_rh)
-        sequence = sequence[-30:]
-        # print("keypoints extracted.")
-        if len(sequence) == 30:
+        if sequence:
             res = model.predict(np.expand_dims(sequence, axis=0))[0]
-            print(f"Model prediction made. {actions[np.argmax(res)]}")
-            predictions.append(np.argmax(res))
+            predictions = actions[np.argmax(res)]
+            print(f"Model prediction made. {predictions}")
+        else:
+            return jsonify({'error': 'No valid keypoints extracted'}), 400
 
-            if np.unique(predictions[-10:])[0] == np.argmax(res):
-                if res[np.argmax(res)] > threshold:
-                    if len(sentence) > 0:
-                        if actions[np.argmax(res)] != sentence[-1]:
-                            sentence.append(actions[np.argmax(res)])
-                    else:
-                        sentence.append(actions[np.argmax(res)])
-            # sequence = []
-            # if len(sentence) > 5:
-            #     sentence = sentence[-5:]
-    # if os.path.exists(video_path):
-    #     os.remove(video_path)
-    #     print(f"File {video_path} has been deleted.")
-    # else:
-    #     print("The file does not exist.")
-
-    # Calculate elapsed time
     end_time = time.time()
     elapsed_time = end_time - start_time
     print("end.\nTotal time taken: {:.2f} seconds".format(elapsed_time))
-    # Release the video capture object and close all windows
     cap.release()
     cv2.destroyAllWindows()
-
-   
-    return jsonify({'prediction': sentence})
+    return jsonify({'prediction': predictions})
 
 @app.route('/', methods=['GET'])
 def test():
@@ -122,11 +97,6 @@ def predict():
     try:
         videofile.save(video_path)
         app.logger.info(f"File saved successfully at {video_path}")
-        # temp_output_path = video_path.rsplit('.', 1)[0] + '_temp.webm'
-        # command = f"ffmpeg -i {video_path} -vf 'scale=iw*0.5:ih*0.5' -y {temp_output_path}"
-        # command = f"ffmpeg -i {video_path} -vf 'fps=20' -y {temp_output_path}"
-        # subprocess.run(command, shell=True, check=True)
-        # shutil.move(temp_output_path, video_path)
         
     except Exception as e:
         app.logger.error(f"Failed to save file: {e}")
